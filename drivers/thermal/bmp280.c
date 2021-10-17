@@ -4,6 +4,7 @@
 #include <hardware/i2c.h>
 #include <karos/error.h>
 #include <karos/module.h>
+#include <karos/thermal/thermal-device.h>
 #include <karos/thermal/bmp280.h>
 #include <karos/i2c/i2c-dev.h>
 #include <karos/i2c/i2c-core.h>
@@ -292,14 +293,6 @@ static int bmp280_init(struct i2c_dev *dev)
 	bmp280_update_status(dev);
 	bmp280_configure(dev, &device_configurations[0]);
 
-	while(true) {
-		bmp280_get_temperature(dev);
-		bmp280_get_pressure(dev);
-		printf("Temperature: %d\n", sensor->temperature);
-		printf("Pressure   : %d\n\n\n", sensor->pressure);
-		sleep_ms(1000);
-	}
-
 out:
 	if (err) {
 		free(sensor);
@@ -317,9 +310,28 @@ static struct i2c_dev_ops bmp280_ops = {
 	.write	= i2c_dev_write,
 };
 
+static int bmp280_thermal_read(void *data, int32_t *value) {
+	struct i2c_dev *dev;
+	struct bmp280 *sensor;
+
+	dev = (struct i2c_dev*)data;
+	sensor = (struct bmp280*)dev->priv_data;
+
+	bmp280_get_temperature(dev);
+	*value = sensor->temperature;
+
+	return 0;
+}
+
+static struct thermal_device_ops bmp280_thermal_ops = {
+	.get_temperature = bmp280_thermal_read,
+};
+
 int bmp280_driver_init(void)
 {
 	struct i2c_dev *dev;
+	struct thermal_device *therm_dev;
+	int err = 0;
 
 	dev = calloc(1, sizeof(struct i2c_dev));
 	if (!dev)
@@ -331,7 +343,18 @@ int bmp280_driver_init(void)
 
 	i2c_device_register(dev);
 
-	return 0;
+	therm_dev = calloc(1, sizeof(struct thermal_device));
+	if (!therm_dev)
+		return -ENOMEM;
+
+	therm_dev->name = "bmp280";
+	therm_dev->priv_data = dev;
+	therm_dev->ops = &bmp280_thermal_ops;
+	err = thermal_device_register(therm_dev);
+	if (err)
+		free(therm_dev);
+
+	return err;
 }
 
 void bmp280_driver_exit(void)
@@ -339,19 +362,3 @@ void bmp280_driver_exit(void)
 	// Free up memory.
 	return;
 }
-
-//int main() {
-//	stdio_init_all();
-//
-//	sleep_ms(5000);
-//	printf("Testing I2c Framework\n");
-//
-//	bmp280_module_init();
-//	printf("BMP280 driver registered\n");
-//
-//	printf("Initializing I2C framework\n");
-//	i2c_framework_init();
-//	printf("Done\n");
-//
-//	return 0;
-//}
