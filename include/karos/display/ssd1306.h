@@ -46,14 +46,17 @@
 #define SSD1306_ACTIVATE_SCROLL				0x2F
 #define SSD1306_SET_VERTICAL_SCROLL_AREA		0xA3
 
+#define SSD1306_SWAP(x, y)					\
+	(((x) ^= (y)), ((y) ^= (x)), ((x) ^= (y)))
+
 struct ssd1306 {
 	struct i2c_dev		*i2c_dev;
 	struct display_device	*display_device;
 	uint8_t			*buffer;
 	uint32_t		buffer_size;
 
-	uint32_t		height;
-	uint32_t		width;
+	int16_t			height;
+	int16_t			width;
 	uint8_t			contrast;
 };
 

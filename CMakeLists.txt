@@ -27,6 +27,7 @@ target_link_libraries(KarOS
 
 target_include_directories(KarOS PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
+add_subdirectory(apps)
 add_subdirectory(drivers)
 add_subdirectory(kernel)
 

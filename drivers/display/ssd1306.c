@@ -6,7 +6,97 @@
 #include <karos/display/display-core.h>
 #include <karos/display/ssd1306.h>
 
-static int ssd1306_display_buffer(struct display_device *dev)
+static uint8_t* ssd1306_get_buffer(struct display_device *dev)
+{
+	struct ssd1306 *display;
+
+	display = (struct ssd1306*)dev->priv_data;
+
+	return display->buffer;
+}
+
+static bool ssd1306_get_pixel(struct display_device *dev,
+			      int16_t x, int16_t y)
+{
+	struct ssd1306 *display;
+
+	display = (struct ssd1306*)dev->priv_data;
+
+	switch(display->display_device->rotation) {
+	case 1:
+		SSD1306_SWAP(x, y);
+		x = display->width - x - 1;
+		break;
+	case 2:
+		x = display->width - x - 1;
+		y = display->height - y - 1;
+		break;
+	case 3:
+		SSD1306_SWAP(x, y);
+		y = display->height - y - 1;
+		break;
+	}
+
+	if ((x >= 0) && (x < display->width) && (y >= 0) &&
+	    (y < display->height)) {
+		return (display->buffer[x + (y / 8) * display->width] &
+			(1 << (y & 7)));
+	} else {
+		return false;
+	}
+}
+
+static void ssd1306_set_pixel(struct display_device *dev,
+			      int16_t x, int16_t y, int16_t color)
+{
+	struct ssd1306 *display;
+	uint8_t *buffer;
+
+	display = (struct ssd1306*)dev->priv_data;
+	buffer = display->buffer;
+
+	switch(display->display_device->rotation) {
+	case 1:
+		SSD1306_SWAP(x, y);
+		x = display->width - x - 1;
+		break;
+	case 2:
+		x = display->width - x - 1;
+		y = display->height - y - 1;
+		break;
+	case 3:
+		SSD1306_SWAP(x, y);
+		y = display->height - y - 1;
+		break;
+	}
+
+	if ((x >= 0) && (x < display->width) && (y >= 0) &&
+	    (y < display->height)) {
+		switch(color) {
+		case SSD1306_BLACK:
+			buffer[x + (y / 8) * display->width] &= ~(1 << (y & 7));
+			break;
+		case SSD1306_INVERSE:
+			buffer[x + (y / 8) * display->width] ^= (1 << (y & 7));
+			break;
+		case SSD1306_WHITE:
+			/* Fallthrough */
+		default:
+			buffer[x + (y / 8) * display->width] |= (1 << (y & 7));
+			break;
+		}
+	}
+}
+
+static void ssd1306_clear_display(struct display_device *dev)
+{
+	struct ssd1306 *display;
+
+	display = (struct ssd1306*)dev->priv_data;
+	memset(display->buffer, 0x0, display->buffer_size);
+}
+
+static void ssd1306_display_buffer(struct display_device *dev)
 {
 	struct ssd1306 *display;
 	struct i2c_dev *i2c_dev;
@@ -32,12 +122,10 @@ static int ssd1306_display_buffer(struct display_device *dev)
 		i2c_dev_write(i2c_dev, 0x40, *buffer);
 		buffer++;
 	}
-
-	return 0;
 }
 
-static int ssd1306_display_init(struct display_device *dev, uint32_t width,
-			 uint32_t height)
+static int ssd1306_display_init(struct display_device *dev, int16_t width,
+			 int16_t height)
 {
 	struct ssd1306 *display;
 	struct i2c_dev *i2c_dev;
@@ -87,6 +175,8 @@ static int ssd1306_display_init(struct display_device *dev, uint32_t width,
 
 	display->height = height;
 	display->width = width;
+	dev->height = height;
+	dev->width = width;
 
 	if (display->buffer)
 		free(display->buffer);
@@ -96,7 +186,7 @@ static int ssd1306_display_init(struct display_device *dev, uint32_t width,
 	if (!display->buffer)
 		return -ENOMEM;
 
-	memset(display->buffer, 0x0, display->buffer_size);
+	ssd1306_clear_display(dev);
 
 	i2c_dev_burst_write(i2c_dev, 0x0, init_sequence[0], 4);
 	i2c_dev_write(i2c_dev, 0x0, height - 1);
@@ -118,6 +208,13 @@ static int ssd1306_display_init(struct display_device *dev, uint32_t width,
 
 	return 0;
 }
+
+static struct display_device_ops ssd1306_display_ops = {
+	.init		= ssd1306_display_init,
+	.display	= ssd1306_display_buffer,
+	.clear		= ssd1306_clear_display,
+	.set_pixel	= ssd1306_set_pixel,
+};
 
 int ssd1306_driver_probe(struct i2c_dev *dev)
 {
@@ -142,10 +239,8 @@ int ssd1306_driver_probe(struct i2c_dev *dev)
 	
 	display_device->name = "ssd1306";
 	display_device->priv_data = (void*) display;
+	display_device->ops = &ssd1306_display_ops;
 	display_device_register(display_device);
-
-	ssd1306_display_init(display_device, 128, 32);
-	ssd1306_display_buffer(display_device);
 
 out:
 	if (err)
