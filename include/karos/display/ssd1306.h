@@ -50,6 +50,10 @@ struct ssd1306 {
 	struct i2c_dev		*i2c_dev;
 	struct display_device	*display_device;
 	uint8_t			*buffer;
+	uint32_t		buffer_size;
+
+	uint32_t		height;
+	uint32_t		width;
 	uint8_t			contrast;
 };
 

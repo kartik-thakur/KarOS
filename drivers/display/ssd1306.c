@@ -1,9 +1,40 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <karos/error.h>
 #include <karos/display/display-device.h>
 #include <karos/display/display-core.h>
 #include <karos/display/ssd1306.h>
+
+static int ssd1306_display_buffer(struct display_device *dev)
+{
+	struct ssd1306 *display;
+	struct i2c_dev *i2c_dev;
+	uint8_t commands[] = {
+		SSD1306_PAGEADDR,
+		0,
+		0xFF,
+		SSD1306_COLUMNADDR,
+		0
+	};
+	uint32_t buffer_size;
+	uint8_t *buffer;
+
+	display = dev->priv_data;
+	i2c_dev = display->i2c_dev;
+	buffer_size = display->buffer_size;
+	buffer = display->buffer;
+
+	i2c_dev_burst_write(i2c_dev, 0x0, commands, 5);
+	i2c_dev_write(i2c_dev, 0x0, display->width - 1);
+
+	while(buffer_size--) {
+		i2c_dev_write(i2c_dev, 0x40, *buffer);
+		buffer++;
+	}
+
+	return 0;
+}
 
 static int ssd1306_display_init(struct display_device *dev, uint32_t width,
 			 uint32_t height)
@@ -54,6 +85,19 @@ static int ssd1306_display_init(struct display_device *dev, uint32_t width,
 	display = (struct ssd1306*) dev->priv_data;
 	i2c_dev = display->i2c_dev;
 
+	display->height = height;
+	display->width = width;
+
+	if (display->buffer)
+		free(display->buffer);
+
+	display->buffer_size = width * ((height + 7) / 8);
+	display->buffer = (uint8_t *)malloc(display->buffer_size);
+	if (!display->buffer)
+		return -ENOMEM;
+
+	memset(display->buffer, 0x0, display->buffer_size);
+
 	i2c_dev_burst_write(i2c_dev, 0x0, init_sequence[0], 4);
 	i2c_dev_write(i2c_dev, 0x0, height - 1);
 
@@ -101,6 +145,7 @@ int ssd1306_driver_probe(struct i2c_dev *dev)
 	display_device_register(display_device);
 
 	ssd1306_display_init(display_device, 128, 32);
+	ssd1306_display_buffer(display_device);
 
 out:
 	if (err)
