@@ -33,5 +33,7 @@ int i2c_dev_read(struct i2c_dev *dev, uint8_t reg, uint8_t *value);
 int i2c_dev_burst_read(struct i2c_dev *dev, uint8_t reg, uint8_t *buffer,
 		       uint8_t nbytes);
 int i2c_dev_write(struct i2c_dev *dev, uint8_t reg, uint8_t value);
+int i2c_dev_burst_write(struct i2c_dev *dev, uint8_t reg, uint8_t *buffer,
+			uint8_t nbytes);
 
 #endif

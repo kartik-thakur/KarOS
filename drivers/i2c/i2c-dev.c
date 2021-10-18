@@ -53,3 +53,25 @@ int i2c_dev_write(struct i2c_dev *dev, const uint8_t reg, uint8_t value)
 
 	return 0;
 }
+
+int i2c_dev_burst_write(struct i2c_dev *dev, uint8_t reg, uint8_t *buffer,
+			uint8_t nbytes)
+{
+	uint8_t i2c_msg[nbytes + 1];
+	uint8_t i;
+	int err = 0;
+
+	if (!nbytes)
+		return -EINVAL;
+
+	i2c_msg[0] = reg;
+	for (i = 0; i < nbytes; i++)
+		i2c_msg[i + 1] = buffer[i];
+
+	err = i2c_write_blocking(dev->bus, dev->addr, i2c_msg, nbytes + 1,
+				 false);
+	if (err == PICO_ERROR_GENERIC)
+		return err;
+
+	return 0;
+}
