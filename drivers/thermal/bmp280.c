@@ -5,6 +5,7 @@
 #include <karos/error.h>
 #include <karos/module.h>
 #include <karos/thermal/thermal-device.h>
+#include <karos/thermal/thermal-core.h>
 #include <karos/thermal/bmp280.h>
 #include <karos/i2c/i2c-dev.h>
 #include <karos/i2c/i2c-core.h>
@@ -272,9 +273,27 @@ static int bmp280_configure(struct i2c_dev *dev,
 	return err;
 }
 
+static int bmp280_thermal_read(void *data, int32_t *value) {
+	struct i2c_dev *dev;
+	struct bmp280 *sensor;
+
+	dev = (struct i2c_dev*)data;
+	sensor = (struct bmp280*)dev->priv_data;
+
+	bmp280_get_temperature(dev);
+	*value = sensor->temperature;
+
+	return 0;
+}
+
+static struct thermal_device_ops bmp280_thermal_ops = {
+	.get_temperature = bmp280_thermal_read,
+};
+
 static int bmp280_init(struct i2c_dev *dev)
 {
 	struct bmp280 *sensor;
+	struct thermal_device *therm_dev;
 	int err;
 
 	sensor = calloc(1, sizeof(struct bmp280));
@@ -287,7 +306,19 @@ static int bmp280_init(struct i2c_dev *dev)
 		goto out;
 	}
 
+
 	dev->priv_data = (void*)sensor;
+
+	therm_dev = calloc(1, sizeof(struct thermal_device));
+	if (!therm_dev)
+		return -ENOMEM;
+
+	therm_dev->name = "bmp280";
+	therm_dev->priv_data = (void *)dev;
+	therm_dev->ops = &bmp280_thermal_ops;
+	err = thermal_device_register(therm_dev);
+	if (err)
+		free(therm_dev);
 
 	bmp280_reset(dev);
 	bmp280_update_status(dev);
@@ -310,27 +341,9 @@ static struct i2c_dev_ops bmp280_ops = {
 	.write	= i2c_dev_write,
 };
 
-static int bmp280_thermal_read(void *data, int32_t *value) {
-	struct i2c_dev *dev;
-	struct bmp280 *sensor;
-
-	dev = (struct i2c_dev*)data;
-	sensor = (struct bmp280*)dev->priv_data;
-
-	bmp280_get_temperature(dev);
-	*value = sensor->temperature;
-
-	return 0;
-}
-
-static struct thermal_device_ops bmp280_thermal_ops = {
-	.get_temperature = bmp280_thermal_read,
-};
-
 int bmp280_driver_init(void)
 {
 	struct i2c_dev *dev;
-	struct thermal_device *therm_dev;
 	int err = 0;
 
 	dev = calloc(1, sizeof(struct i2c_dev));
@@ -340,19 +353,7 @@ int bmp280_driver_init(void)
 	dev->bus	= i2c0;
 	dev->addr	= BMP280_ADDRESS;
 	dev->ops	= &bmp280_ops;
-
 	i2c_device_register(dev);
-
-	therm_dev = calloc(1, sizeof(struct thermal_device));
-	if (!therm_dev)
-		return -ENOMEM;
-
-	therm_dev->name = "bmp280";
-	therm_dev->priv_data = dev;
-	therm_dev->ops = &bmp280_thermal_ops;
-	err = thermal_device_register(therm_dev);
-	if (err)
-		free(therm_dev);
 
 	return err;
 }
