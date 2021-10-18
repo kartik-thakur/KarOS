@@ -261,7 +261,7 @@ int ssd1306_driver_init(void)
 	if (!i2c_dev)
 		return -ENOMEM;
 
-	i2c_dev->bus = i2c0;
+	i2c_dev->bus = i2c1;
 	i2c_dev->addr = SSD1306_ADDR;
 	i2c_dev->ops = &ssd1306_i2c_dev_ops;
 

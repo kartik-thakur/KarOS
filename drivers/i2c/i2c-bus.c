@@ -10,6 +10,11 @@ static struct i2c_bus i2c_buses[] = {
 		.baudrate	= 100000,
 		.sda_gpio	= 4,
 		.scl_gpio	= 5,
+	}, {
+		.bus		= i2c1,
+		.baudrate	= 100000,
+		.sda_gpio	= 2,
+		.scl_gpio	= 3,
 	},
 };
 
@@ -23,6 +28,8 @@ static void i2c_bus_probe(struct i2c_bus *bus)
 	i2c_init(bus->bus, bus->baudrate);
 	gpio_set_function(bus->sda_gpio, GPIO_FUNC_I2C);
 	gpio_set_function(bus->scl_gpio, GPIO_FUNC_I2C);
+	gpio_pull_up(bus->sda_gpio);
+	gpio_pull_up(bus->scl_gpio);
 
 	/*
 	 * Scan for I2C devices connected to the bus and call their
