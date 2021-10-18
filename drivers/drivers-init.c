@@ -1,9 +1,11 @@
 #include <karos/drivers.h>
+#include <karos/display/display-core.h>
 #include <karos/i2c/i2c-core.h>
 #include <karos/thermal/thermal-core.h>
 
 void drivers_init(void)
 {
+	display_drivers_init();
 	thermal_drivers_init();
 
 	/*

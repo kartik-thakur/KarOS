@@ -16,7 +16,7 @@ struct thermal_device_list {
 	struct thermal_device_list	*prev;
 };
 
-struct thermal_device_list *device_list = NULL;
+static struct thermal_device_list *device_list = NULL;
 
 int thermal_device_register(struct thermal_device *dev)
 {

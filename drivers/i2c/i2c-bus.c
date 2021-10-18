@@ -40,8 +40,7 @@ static void i2c_bus_probe(struct i2c_bus *bus)
 
 			err = i2c_device_try_probe(bus, device_addr);
 			if (err < 0) {
-				printf("Successfully probed I2C devie at "
-				       "addr: 0x%x\n",
+				printf("Driver not present for device: 0x%x\n",
 				       (unsigned int)device_addr);
 			}
 		}
