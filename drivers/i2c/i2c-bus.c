@@ -29,7 +29,8 @@ static void i2c_bus_probe(struct i2c_bus *bus)
 	 * driver probe if registered.
 	 */
 	for (device_addr = 0; device_addr < (1 << 7); ++device_addr) {
-		uint8_t err, value;
+		uint8_t value;
+		int err;
 
 		if (!is_reserved_addr(device_addr)) {
 			err = i2c_read_blocking(bus->bus, device_addr, &value,
