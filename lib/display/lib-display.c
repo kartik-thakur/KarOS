@@ -79,3 +79,39 @@ void display_draw_horizontal_line(struct display_device *dev, int16_t x,
 	if (dev && dev->ops->draw_horizontal_line)
 		dev->ops->draw_horizontal_line(dev, x, y, w, color);
 }
+
+void display_draw_circle(struct display_device *dev, int16_t x0,
+		int16_t y0, int16_t r, uint16_t color)
+{
+	int16_t f = 1 - r;
+	int16_t ddf_x = 1;
+	int16_t ddf_y = -2 * r;
+	int16_t x = 0;
+	int16_t y = r;
+
+	display_write_pixel(dev, x0, y0 + r, color);
+	display_write_pixel(dev, x0, y0 - r, color);
+	display_write_pixel(dev, x0 + r, y0, color);
+	display_write_pixel(dev, x0 - r, y0, color);
+
+	while(x < y) {
+		if (f >= 0) {
+			y--;
+			ddf_y += 2;
+			f += ddf_y;
+		}
+
+		x++;
+		ddf_x += 2;
+		f += ddf_x;
+
+		display_write_pixel(dev, x0 + x, y0 + y, color);
+		display_write_pixel(dev, x0 - x, y0 + y, color);
+		display_write_pixel(dev, x0 + x, y0 - y, color);
+		display_write_pixel(dev, x0 - x, y0 - y, color);
+		display_write_pixel(dev, x0 + y, y0 + x, color);
+		display_write_pixel(dev, x0 - y, y0 + x, color);
+		display_write_pixel(dev, x0 + y, y0 - x, color);
+		display_write_pixel(dev, x0 - y, y0 - x, color);
+	}
+}

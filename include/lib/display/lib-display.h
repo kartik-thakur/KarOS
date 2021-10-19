@@ -21,5 +21,7 @@ void display_draw_vertical_line(struct display_device *dev, int16_t x,
 		int16_t y, int16_t h, uint16_t color);
 void display_draw_horizontal_line(struct display_device *dev, int16_t x,
 		int16_t y, int16_t w, uint16_t color);
+void display_draw_circle(struct display_device *dev, int16_t x0,
+		int16_t y0, int16_t r, uint16_t color);
 
 #endif

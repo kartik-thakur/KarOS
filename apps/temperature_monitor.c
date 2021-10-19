@@ -30,12 +30,17 @@ int app_main(int argc, char **argv)
 
 	sleep_ms(2000);
 	display_clear(display);
-	display_draw_horizontal_line(display, 64, 16, 10, 1);
+	display_draw_horizontal_line(display, 64, 16, 20, 1);
 	display_print_buffer(display);
 
 	sleep_ms(2000);
 	display_clear(display);
-	display_draw_vertical_line(display, 64, 16, 10, 1);
+	display_draw_vertical_line(display, 64, 16, 20, 1);
+	display_print_buffer(display);
+
+	sleep_ms(2000);
+	display_clear(display);
+	display_draw_circle(display, 64, 16, 10, 1);
 	display_print_buffer(display);
 
 	sleep_ms(2000);
