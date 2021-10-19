@@ -65,3 +65,17 @@ void display_draw_bitmap(struct display_device *dev, int16_t x, int16_t y,
 		}
 	}
 }
+
+void display_draw_vertical_line(struct display_device *dev, int16_t x,
+		int16_t y, int16_t h, uint16_t color)
+{
+	if (dev && dev->ops->draw_vertical_line)
+		dev->ops->draw_vertical_line(dev, x, y, h, color);
+}
+
+void display_draw_horizontal_line(struct display_device *dev, int16_t x,
+		int16_t y, int16_t w, uint16_t color)
+{
+	if (dev && dev->ops->draw_horizontal_line)
+		dev->ops->draw_horizontal_line(dev, x, y, w, color);
+}

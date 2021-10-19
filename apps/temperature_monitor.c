@@ -28,6 +28,22 @@ int app_main(int argc, char **argv)
 			    splash_data[1].width, splash_data[1].height, 1);
 	display_print_buffer(display);
 
+	sleep_ms(2000);
+	display_clear(display);
+	display_draw_horizontal_line(display, 64, 16, 10, 1);
+	display_print_buffer(display);
+
+	sleep_ms(2000);
+	display_clear(display);
+	display_draw_vertical_line(display, 64, 16, 10, 1);
+	display_print_buffer(display);
+
+	sleep_ms(2000);
+	display_clear(display);
+	display_draw_bitmap(display, bitmap_x, bitmap_y, splash_data[1].data,
+			    splash_data[1].width, splash_data[1].height, 1);
+	display_print_buffer(display);
+
 	thermal_device = get_thermal_device_by_name("bmp280");
 	if (!thermal_device)
 		printf("Unable to find bmp280 device\n");

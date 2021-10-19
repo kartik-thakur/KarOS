@@ -88,6 +88,217 @@ static void ssd1306_set_pixel(struct display_device *dev,
 	}
 }
 
+static void ssd1306_draw_horizontal_line_internal(struct display_device *dev,
+		int16_t x, int16_t y, int16_t w, uint16_t color)
+{
+	struct ssd1306 *display;
+	int16_t width = dev->width;
+	int16_t height = dev->height;
+	uint8_t *buffer;
+	uint8_t mask;
+
+	display = (struct ssd1306*) dev->priv_data;
+
+	if ((y >= 0) && (y < height)) {
+		if (x < 0) {
+			w += x;
+			x = 0;
+		}
+		if ((x + w) > width) {
+			w = width - x;
+		}
+		if (w > 0) {
+			mask = 1 << (y & 7);
+			buffer = &display->buffer[(y / 8) * width + x];
+
+			switch (color) {
+			case SSD1306_BLACK:
+				mask = ~mask;
+				while (w--)
+					*buffer++ &= mask;
+				break;
+			case SSD1306_INVERSE:
+				while (w--)
+					*buffer++ ^= mask;
+				break;
+			case SSD1306_WHITE:
+				/* Fall through. */
+			default:
+				while (w--)
+					*buffer++ |= mask;
+				break;
+			}
+		}
+	}
+}
+
+static void ssd1306_draw_vertical_line_internal(struct display_device *dev,
+		int16_t x, int16_t __y, int16_t __h, uint16_t color)
+{
+	struct ssd1306 *display;
+	int16_t width = dev->width;
+	int16_t height = dev->height;
+	int16_t y, h;
+	uint8_t *buffer;
+	uint8_t mask, mod, val;
+	uint8_t premask[8] = {
+		0x00, 0x80, 0xC0, 0xE0,
+		0xF0, 0xF8, 0xFC, 0xFE
+	};
+	uint8_t postmask[8] = {
+		0x00, 0x01, 0x03, 0x07,
+		0x0F, 0x1F, 0x3F, 0x7F
+	};
+
+	display = (struct ssd1306*) dev->priv_data;
+
+	if ((x >= 0) && (x < width)) {
+		if (__y < 0) {
+			__h += __y;
+			__y = 0;
+		}
+
+		if ((__y + __h) > height) {
+			__h = height - __y;
+		}
+
+		if (__h > 0) {
+			y = __y;
+			h = __h;
+			mod = (y & 7);
+			buffer = &display->buffer[(y / 8) * width + x];
+
+			if (mod) {
+				mod = 8 - mod;
+				mask = (*(const unsigned char*)(&premask[mod]));
+
+				if (h < mod)
+					mask &= (0xFF >> (mod - h));
+
+				switch(color) {
+				case SSD1306_BLACK:
+					*buffer ^= mask;
+					break;
+				case SSD1306_INVERSE:
+					*buffer &= ~mask;
+					break;
+				case SSD1306_WHITE:
+					/* Fall through. */
+				default:
+					*buffer |= mask;
+					break;
+				}
+			}
+
+			if (h >= mod) {
+				h -= mod;
+
+				if (h >= 8) {
+					if (color == SSD1306_INVERSE) {
+						do {
+							*buffer ^= 0xFF;
+							buffer += width;
+							h -= 8;
+						} while (h >= 8);
+					} else {
+						val = (color != SSD1306_BLACK) ?
+							255 : 0;
+						do {
+							*buffer = val;
+							buffer += width;
+							h -= 8;
+						} while(h >= 8);
+					}
+				}
+			}
+
+			if (h) {
+				mod = h & 7;
+				mask = (*(const unsigned char *)&postmask[mod]);
+
+				switch(color) {
+				case SSD1306_BLACK:
+					*buffer &= ~mask;
+					break;
+				case SSD1306_INVERSE:
+					*buffer ^= mask;
+					break;
+				case SSD1306_WHITE:
+					/* Fall through */
+				default:
+					*buffer |= mask;
+					break;
+				}
+			}
+		}
+	}
+}
+
+static void ssd1306_draw_vertical_line(struct display_device *dev,
+		int16_t x, int16_t y, int16_t h, uint16_t color)
+{
+	int16_t width = dev->width;
+	int16_t height = dev->height;
+	bool bswap = false;
+
+	switch (dev->rotation) {
+	case 1:
+		bswap = true;
+		SSD1306_SWAP(x, y);
+		x = width - x - 1;
+		break;
+	case 2:
+		x = width - x - 1;
+		y = height - y- 1;
+		y -= (h - 1);
+		break;
+	case 3:
+		bswap = true;
+		SSD1306_SWAP(x, y);
+		y = height - y - 1;
+		break;
+	}
+
+	if (bswap) {
+		ssd1306_draw_horizontal_line_internal(dev, x, y, h, color);
+	} else {
+		ssd1306_draw_vertical_line_internal(dev, x, y, h, color);
+	}
+}
+
+static void ssd1306_draw_horizontal_line(struct display_device *dev,
+		int16_t x, int16_t y, int16_t w, uint16_t color)
+{
+	int16_t width = dev->width;
+	int16_t height = dev->height;
+	bool bswap = false;
+
+	switch (dev->rotation) {
+	case 1:
+		bswap = true;
+		SSD1306_SWAP(x, y);
+		x = width - x - 1;
+		break;
+	case 2:
+		x = width - x - 1;
+		y = height - y - 1;
+		x -= (w - 1);
+		break;
+	case 3:
+		bswap = true;
+		SSD1306_SWAP(x, y);
+		y = height - y - 1;
+		y -= (w - 1);
+		break;
+	}
+
+	if (bswap) {
+		ssd1306_draw_vertical_line_internal(dev, x, y, w, color);
+	} else {
+		ssd1306_draw_horizontal_line_internal(dev, x, y, w, color);
+	}
+}
+
 static void ssd1306_clear_display(struct display_device *dev)
 {
 	struct ssd1306 *display;
@@ -210,10 +421,12 @@ static int ssd1306_display_init(struct display_device *dev, int16_t width,
 }
 
 static struct display_device_ops ssd1306_display_ops = {
-	.init		= ssd1306_display_init,
-	.display	= ssd1306_display_buffer,
-	.clear		= ssd1306_clear_display,
-	.set_pixel	= ssd1306_set_pixel,
+	.init			= ssd1306_display_init,
+	.display		= ssd1306_display_buffer,
+	.clear			= ssd1306_clear_display,
+	.set_pixel		= ssd1306_set_pixel,
+	.draw_horizontal_line	= ssd1306_draw_horizontal_line,
+	.draw_vertical_line	= ssd1306_draw_vertical_line,
 };
 
 int ssd1306_driver_probe(struct i2c_dev *dev)

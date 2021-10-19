@@ -16,6 +16,12 @@ struct display_device_ops {
 	bool		(*get_pixel)(struct display_device *dev,
 				int16_t x, int16_t y);
 	uint8_t*	(*get_buffer)(struct display_device);
+	void		(*draw_horizontal_line)(struct display_device *dev,
+				int16_t x, int16_t y, int16_t w,
+				uint16_t color);
+	void		(*draw_vertical_line)(struct display_device *dev,
+				int16_t x, int16_t y, int16_t h,
+				uint16_t color);
 };
 
 struct display_device {
