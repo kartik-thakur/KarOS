@@ -30,6 +30,7 @@ target_include_directories(KarOS PUBLIC ${CMAKE_SOURCE_DIR}/include)
 add_subdirectory(apps)
 add_subdirectory(drivers)
 add_subdirectory(kernel)
+add_subdirectory(lib)
 
 pico_add_extra_outputs(KarOS)
 pico_enable_stdio_usb(KarOS 1)
