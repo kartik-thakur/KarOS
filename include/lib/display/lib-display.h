@@ -41,4 +41,8 @@ void display_draw_triangle(struct display_device *dev, int16_t x0,  int16_t y0,
 		int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
 void display_draw_line(struct display_device *dev, int16_t x0, int16_t y0,
 		int16_t x1, int16_t y1, uint16_t color);
+void display_write_line(struct display_device *dev, int16_t x0, int16_t y0,
+		int16_t x1, int16_t y1, uint16_t color);
+void display_fill_triangle(struct display_device *dev, int16_t x0, int16_t y0,
+		int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
 #endif

@@ -5,6 +5,14 @@
 #include <lib/display/lib-display.h>
 #include <karos/display/display-device.h>
 
+#define __SWAP_INT16_T(a, b)			\
+	{					\
+		int16_t t = a;			\
+						\
+		a = b;				\
+		b = t;				\
+	}
+
 int display_init(struct display_device *dev, int16_t width, int16_t height)
 {
 	if (dev && dev->ops->init)
@@ -296,14 +304,165 @@ void display_fill_screen(struct display_device *dev, uint16_t color)
 	display_fill_rectangle(dev, 0, 0, dev->width, dev->height, color);
 }
 
+void display_write_line(struct display_device *dev, int16_t x0, int16_t y0,
+		int16_t x1, int16_t y1, uint16_t color)
+{
+	int16_t steep;
+	int16_t dx, dy, ystep;
+	int16_t err;
+
+	if (!dev)
+		return;
+
+	steep = abs(y1 - y0) > abs(x1 - x0);
+
+	if (steep) {
+		__SWAP_INT16_T(x0, y0);
+		__SWAP_INT16_T(x1, y1);
+	}
+
+	if (x0 > x1) {
+		__SWAP_INT16_T(x0, x1);
+		__SWAP_INT16_T(y0, y1);
+	}
+
+	dx = x1 - x0;
+	dy = abs(y1 - y0);
+	err = dx / 2;
+
+	if (y0 < y1) {
+		ystep = 1;
+	} else {
+		ystep = -1;
+	}
+
+	for(; x0 <= x1; x0++) {
+		if (steep) {
+			display_write_pixel(dev, y0, x0, color);
+		} else {
+			display_write_pixel(dev, x0, y0, color);
+		}
+
+		err -= dy;
+		if (err < 0) {
+			y0 += ystep;
+			err += dx;
+		}
+	}
+}
+
 void display_draw_line(struct display_device *dev, int16_t x0, int16_t y0,
 		int16_t x1, int16_t y1, uint16_t color)
 {
+	if (!dev)
+		return;
+
+	if (x0 == x1) {
+		if (y0 > y1)
+			__SWAP_INT16_T(y0, y1);
+		display_draw_vertical_line(dev, x0, y0, y1 - y0 + 1, color);
+	} else if (y0 == y1) {
+		if (x0 > x1)
+			__SWAP_INT16_T(x0, x1);
+		display_draw_horizontal_line(dev, x0, y0, x1 - x0 + 1, color);
+	} else {
+		display_write_line(dev, x0, y0, x1, y1, color);
+	}
 }
 
 void display_draw_triangle(struct display_device *dev, int16_t x0,  int16_t y0,
 		int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
 {
+	if (!dev)
+		return;
 
+	display_draw_line(dev, x0, y0, x1, y1, color);
+	display_draw_line(dev, x1, y1, x2, y2, color);
+	display_draw_line(dev, x2, y2, x0, y0, color);
 }
 
+void display_fill_triangle(struct display_device *dev, int16_t x0, int16_t y0,
+		int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
+{
+	int16_t a, b, y;
+	int16_t dx01, dy01, dx02, dy02, dx12, dy12;
+	int32_t sa = 0, sb = 0;
+	int16_t	last;
+
+	if (!dev)
+		return;
+
+	if (y0 > y1) {
+		__SWAP_INT16_T(y0, y1);
+		__SWAP_INT16_T(x0, x1);
+	}
+
+	if (y1 > y2) {
+		__SWAP_INT16_T(y2, y1);
+		__SWAP_INT16_T(x2, x1);
+	}
+
+	if (y0 > y1) {
+		__SWAP_INT16_T(y0, y1);
+		__SWAP_INT16_T(x0, x1);
+	}
+
+	if (y0 == y2) {
+		a = b = x0;
+
+		if (x1 < a) {
+			a = x1;
+		} else if (x1 > b) {
+			b = x1;
+		}
+
+		if (x2 < a) {
+			a = x2;
+		} else if (x2 > b) {
+			b = x2;
+		}
+
+		display_draw_horizontal_line(dev, a, y0, b - a + 1, color);
+		return;
+	}
+
+	dx01 = x1 - x0;
+	dy01 = y1 - y0;
+	dx02 = x2 - x0;
+	dy02 = y2 - y0;
+	dx12 = x2 - x1;
+	dy12 = y2 - y1;
+
+	if (y1 == y2) {
+		last = y1;
+	} else {
+		last = y1 - 1;
+	}
+
+	for (y = y0; y <= last; y++) {
+		a = x0 + sa / dy01;
+		b = x0 + sb / dy02;
+		sa += dx01;
+		sb += dx02;
+
+		if (a > b)
+			__SWAP_INT16_T(a, b);
+
+		display_draw_horizontal_line(dev, a, y, b - a + 1, color);
+	}
+
+	sa = (int32_t)dx12 * (y - y1);
+	sb = (int32_t)dx02 * (y - y0);
+
+	for (; y <= y2; y++) {
+		a = x1 + sa / dy12;
+		b = x0 + sb / dy02;
+		sa += dx12;
+		sb += dx02;
+
+		if (a > b)
+			__SWAP_INT16_T(a, b);
+
+		display_draw_horizontal_line(dev, a, y, b - a + 1, color);
+	}
+}
