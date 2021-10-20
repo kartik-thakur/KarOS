@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <lib/display/gfx-font.h>
 
 struct display_device;
 
@@ -39,6 +40,8 @@ struct display_device {
 	uint16_t			textbgcolor;
 	uint8_t				rotation;
 	bool				wrap;
+	bool				_cp437;
+	gfx_font			*font;
 };
 
 #endif

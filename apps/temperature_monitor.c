@@ -45,8 +45,24 @@ int app_main(int argc, char **argv)
 
 	sleep_ms(2000);
 	display_clear(display);
-	display_draw_bitmap(display, bitmap_x, bitmap_y, splash_data[1].data,
-			    splash_data[1].width, splash_data[1].height, 1);
+	display_fill_rectangle(display, 10, 10, 40, 10, 1);
+	display_print_buffer(display);
+
+	sleep_ms(2000);
+	display_clear(display);
+	display->textsize_x = 3;
+	display->textsize_y = 4;
+	display->textcolor = 1;
+	display->textbgcolor = 1;
+	display->wrap = true;
+	display->_cp437 = false;
+	display->font = NULL;
+	display_write(display, 'k');
+	display_write(display, 'a');
+	display_write(display, 'r');
+	display_write(display, 't');
+	display_write(display, 'i');
+	display_write(display, 'k');
 	display_print_buffer(display);
 
 	thermal_device = get_thermal_device_by_name("bmp280");

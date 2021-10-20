@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <karos/error.h>
-#include <lib/display/lib-display.h>
 #include <karos/display/display-device.h>
+#include <lib/display/lib-display.h>
 
 #define __SWAP_INT16_T(a, b)			\
 	{					\
@@ -12,6 +12,34 @@
 		a = b;				\
 		b = t;				\
 	}
+
+#define PGM_READ_BYTE(addr) (*(const unsigned char *)(addr))
+#define PGM_READ_WORD(addr) (*(const unsigned short *)(addr))
+#define PGM_READ_DWORD(addr) (*(const unsigned long *)(addr))
+
+#if !defined(__INT_MAX__) || (__INT_MAX__ > 0xFFFF)
+#define PGM_READ_POINTER(addr) ((void *)PGM_READ_DWORD(addr))
+#else
+#define PGM_READ_POINTER(addr) ((void *)PGM_READ_WORD(addr))
+#endif
+
+inline gfx_glyph *pgm_read_glyph_ptr(const gfx_font *gfxfont, uint8_t c)
+{
+#ifdef __AVR__
+	return &(((gfx_glyph *)pgm_read_pointer(&gfxfont->glyph))[c]);
+#else
+	return gfxfont->glyph + c;
+#endif //__AVR__
+}
+
+inline uint8_t *pgm_read_bitmap_ptr(const gfx_font *gfxFont)
+{
+#ifdef __AVR__
+	return (uint8_t *)pgm_read_pointer(&gfxFont->bitmap);
+#else
+	return gfxFont->bitmap;
+#endif //__AVR__
+}
 
 int display_init(struct display_device *dev, int16_t width, int16_t height)
 {
@@ -465,4 +493,171 @@ void display_fill_triangle(struct display_device *dev, int16_t x0, int16_t y0,
 
 		display_draw_horizontal_line(dev, a, y, b - a + 1, color);
 	}
+}
+
+void display_draw_char(struct display_device *dev, int16_t x, int16_t y,
+		unsigned char c, uint16_t color, uint16_t bg, uint8_t size)
+{
+	display_draw_char_x_y(dev, x, y, c, color, bg, size, size);
+}
+
+void display_draw_char_x_y(struct display_device *dev, int16_t x, int16_t y,
+		unsigned char c, uint16_t color, uint16_t bg,
+		uint8_t size_x, uint8_t size_y)
+{
+	int8_t i, j;
+	uint8_t line;
+	gfx_glyph *glyph;
+	uint8_t *bitmap;
+	uint16_t bo;
+	uint8_t w, h;
+	int8_t xo, yo;
+	uint8_t xx, yy, bits = 0, bit = 0;
+	int16_t xo16 = 0, yo16 = 0;
+	gfx_font *gfxfont;
+
+	if (!dev)
+		return;
+
+	if (!dev->font) {
+		if (!dev->_cp437 && (c >= 176))
+			c++;
+
+		for (i = 0; i < 5; i++) {
+			line = PGM_READ_BYTE(&font[c * 5 + i]);
+			for (j = 0; j < 8; j++, line >>= 1) {
+				if (line & 1) {
+					if (size_x == 1 && size_y == 1) {
+						display_write_pixel(dev, x + i,
+							y + j, color);
+					} else {
+						display_fill_rectangle(dev,
+							x + i * size_x,
+							y + j * size_y,
+							size_x, size_y, color);
+					}
+				} else if (bg != color) {
+					if (size_x == 1 && size_y == 1) {
+						display_write_pixel(dev, x + i,
+							y + j, bg);
+					} else {
+						display_fill_rectangle(dev,
+							x + i * size_x,
+							y + j * size_y, size_x,
+							size_y, bg);
+					}
+				}
+			}
+			if (bg != color) {
+				if (size_x == 1 && size_y == 1) {
+					display_draw_vertical_line(dev, x + 5,
+							y, 8, bg);
+				} else {
+					display_fill_rectangle(dev,
+							x + 5 * size_x, y,
+							size_x, 8 * size_y, bg);
+				}
+			}
+		}
+	} else {
+		gfxfont = dev->font;
+		c -= (uint8_t) PGM_READ_BYTE(&gfxfont->first);
+		glyph = pgm_read_glyph_ptr(gfxfont, c);
+		bitmap = pgm_read_bitmap_ptr(gfxfont);
+		bo = PGM_READ_WORD(&glyph->bitmap_offset);
+		w = PGM_READ_BYTE(&glyph->width);
+		h = PGM_READ_BYTE(&glyph->height);
+		xo = PGM_READ_BYTE(&glyph->x_offset);
+		yo = PGM_READ_BYTE(&glyph->y_offset);
+
+		if (size_x > 1 || size_y > 1) {
+			xo16 = xo;
+			yo16 = yo;
+		}
+
+		for (yy = 0; yy < h; yy++) {
+			for (xx = 0; xx < w; xx++) {
+				if (!(bit++ & 7)) {
+					bits = PGM_READ_BYTE(&bitmap[bo++]);
+				}
+
+				if (bits & 0x80) {
+					if (size_x == 1 && size_y == 1) {
+						display_write_pixel(dev,
+							x + xo + xx,
+							y + yo + yy, color);
+					} else {
+						display_fill_rectangle(dev,
+						    x + (xo16 + xx) * size_x,
+						    y + (yo16 + yy) * size_y,
+						    size_x, size_y, color);
+					}
+				}
+
+				bits <<= 1;
+			}
+		}
+	}
+}
+
+
+size_t display_write(struct display_device *dev, uint8_t c)
+{
+	uint8_t first, w, h;
+	int16_t xo;
+	gfx_glyph *glyph;
+
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->font) {
+		if (c == '\n') {
+			dev->cursor_x = 0;
+			dev->cursor_y += dev->textsize_y * 8;
+		} else if (c != '\r') {
+			if (dev->wrap &&
+			    ((dev->cursor_x + dev->textsize_x * 6) >
+			     dev->width)) {
+				dev->cursor_x = 0;
+				dev->cursor_y += dev->textsize_y * 8;
+			}
+			display_draw_char_x_y(dev, dev->cursor_x, dev->cursor_y, c,
+					  dev->textcolor, dev->textbgcolor,
+					  dev->textsize_x, dev->textsize_y);
+			dev->cursor_x += dev->textsize_x * 6;
+		}
+	} else {
+		if (c == '\n') {
+			dev->cursor_x = 0;
+			dev->cursor_y += (int16_t)dev->textsize_y *
+				(uint8_t)PGM_READ_BYTE(&dev->font->y_advance);
+		} else if (c != '\r') {
+			first = PGM_READ_BYTE(&dev->font->first);
+			glyph = pgm_read_glyph_ptr(dev->font, c - first);
+			w = PGM_READ_BYTE(&glyph->width);
+			h = PGM_READ_BYTE(&glyph->height);
+
+			if ((w > 0) && (h > 0)) {
+				xo = (int8_t)PGM_READ_BYTE(&glyph->x_offset);
+
+				if (dev->wrap && ((dev->cursor_x +
+				    dev->textsize_x * (xo + w)) > dev->width)) {
+					dev->cursor_x = 0;
+					dev->cursor_y +=
+						(int16_t) dev->textsize_y *
+						(uint8_t) PGM_READ_BYTE(
+							&dev->font->y_advance);
+				}
+				display_draw_char_x_y(dev, dev->cursor_x,
+					dev->cursor_y, c, dev->textcolor,
+					dev->textbgcolor, dev->textsize_x,
+					dev->textsize_y);
+			}
+			dev->cursor_x +=
+				(uint8_t)PGM_READ_BYTE(&glyph->x_advance) *
+					(int16_t) dev->textsize_x;
+		}
+	}
+
+	return 1;
 }
